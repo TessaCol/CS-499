@@ -1,0 +1,12 @@
+.vs/
+**/Debug/
+**/x64/
+ipch/
+**/vcpkg_installed/
+*.user
+*.suo
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.dll

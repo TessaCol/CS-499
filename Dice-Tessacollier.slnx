@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Dice-Tessacollier/Dice-Tessacollier.vcxproj" Id="bb01077d-59d0-4c44-a725-614c4252df72" />
+</Solution>
