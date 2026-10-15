@@ -1,0 +1,21 @@
+Left Center Right (LCR) Rules
+
+The goal of the game is to be the last player with chips.
+
+Each player starts with three chips.
+
+On each turn, roll up to three dice.
+
+Die results:
+L = Pass one chip to the player on the left.
+R = Pass one chip to the player on the right.
+C = Place one chip into the center pot.
+* = No action is taken.
+
+If a player has only one chip, roll one die.
+If a player has two chips, roll two dice.
+If a player has no chips, roll no dice and pass the turn.
+
+The game continues until only one player has chips remaining.
+
+The last player with chips wins the game.
