@@ -14,12 +14,12 @@ This project helped me learn more about organizing C++ code, working with relati
 
 # Skills Demonstrated
 
-*C++ programming
-*Object-oriented programming
-*Data structures and vectors
-*Relational database design
-*SQLite
-*Problem-solving and code improvement
+C++ programming, 
+Object-oriented programming, 
+Data structures and vectors, 
+Relational database design, 
+SQLite, 
+Problem-solving and code improvement
 
 # Repository Contents
 
