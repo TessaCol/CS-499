@@ -15,23 +15,27 @@ It stores the player's name and number of chips.
 #pragma once
 
 #include <string>
+#include <vector>
+#include "sqlite3.h"
 
-class Player
+class LCRDatabase
 {
-private:
-    std::string m_name;
-    int m_chips;
-
 public:
-    Player();
+    LCRDatabase();
+    ~LCRDatabase();
 
-    void SetName(const std::string& name);
+    bool OpenDatabase(const std::string& fileName);
+    void CloseDatabase();
+    bool CreateTables();
 
-    std::string GetName() const;
+    int AddPlayer(const std::string& playerName);
 
-    int GetChips() const;
+    bool SaveCompletedGame(
+        const std::vector<std::string>& playerNames,
+        const std::vector<int>& chipCounts,
+        int winnerIndex
+    );
 
-    void AddChip();
-
-    void RemoveChip();
+private:
+    sqlite3* database;
 };
