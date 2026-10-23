@@ -30,6 +30,8 @@ public:
 
     int AddPlayer(const std::string& playerName);
 
+// Saves a completed game, including player names,
+// final chip counts, and the winner.
     bool SaveCompletedGame(
         const std::vector<std::string>& playerNames,
         const std::vector<int>& chipCounts,
