@@ -1,5 +1,3 @@
-#pragma once
-
 /*
 -------------------------------------------------------
 Title: LCR Dice Game - Player Class
@@ -13,6 +11,8 @@ This class represents a player in the LCR game.
 It stores the player's name and number of chips.
 -------------------------------------------------------
 */
+
+#pragma once
 
 #include <string>
 
