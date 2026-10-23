@@ -15,198 +15,354 @@ is finished.
 -------------------------------------------------------
 */
 
-#include "LCRDatabase.h"
+#include "LCRGame.h"
+
+#include <fstream>
 #include <iostream>
+#include <random>
+#include <string>
+#include <vector>
 
-LCRDatabase::LCRDatabase()
+// Constructor initializes the game and connects the database.
+LCRGame::LCRGame(LCRDatabase& database)
+    : m_database(database)
 {
-	database = nullptr;
+    m_numPlayers = 0;
+    m_currentPlayer = 0;
+    m_centerPot = 0;
 }
 
-LCRDatabase::~LCRDatabase()
+// Displays the rules from the text file.
+void LCRGame::DisplayRules()
 {
-	CloseDatabase();
+    std::ifstream rulesFile(
+        "C:\\Users\\Dunge\\Downloads\\Dice-Tessacollier\\x64\\Debug\\LCRRules.txt"
+    );
+
+    if (!rulesFile)
+    {
+        std::cout << "Error: Could not open LCRRules.txt."
+            << std::endl;
+
+        std::cout << "Make sure the file is in the same folder as the program."
+            << std::endl << std::endl;
+
+        return;
+    }
+
+    std::cout << "========================================"
+        << std::endl;
+
+    std::cout << "       LEFT CENTER RIGHT RULES"
+        << std::endl;
+
+    std::cout << "========================================"
+        << std::endl;
+
+    std::string line;
+
+    while (std::getline(rulesFile, line))
+    {
+        std::cout << line << std::endl;
+    }
+
+    rulesFile.close();
+
+    std::cout << "========================================"
+        << std::endl << std::endl;
 }
 
-bool LCRDatabase::OpenDatabase( const std::string& fileName )
+// Sets up the players and validates the player count.
+void LCRGame::SetupGame()
 {
-	int result = sqlite3_open( fileName.c_str() , &database );
+    while (true)
+    {
+        std::cout << "Enter the number of players: ";
+        std::cin >> m_numPlayers;
 
-	if ( result != SQLITE_OK )
-	{
-		std::cout << "Unable to open database." << std::endl;
-		return false;
-	}
+        if (std::cin.fail())
+        {
+            std::cin.clear();
+            std::cin.ignore(1000, '\n');
 
-	std::cout << "Database opened successfully." << std::endl;
+            std::cout << "Invalid input. "
+                << "Please enter a number of 3 or more."
+                << std::endl << std::endl;
 
-	std::cout << "Database file: "
-		<< sqlite3_db_filename( database , "main" )
-		<< std::endl;
+            continue;
+        }
 
-	return true;
+        if (m_numPlayers < 3)
+        {
+            std::cout << "LCR requires at least 3 players."
+                << std::endl << std::endl;
+
+            continue;
+        }
+
+        break;
+    }
+
+    // Clear the vector before adding the new players.
+    m_players.clear();
+
+    // Reserve enough space for the requested players.
+    m_players.reserve(m_numPlayers);
+
+    for (int i = 0; i < m_numPlayers; i++)
+    {
+        std::string name;
+
+        while (true)
+        {
+            std::cout << "Enter the name of player "
+                << i + 1 << ": ";
+
+            std::cin >> name;
+
+            if (!name.empty())
+            {
+                break;
+            }
+
+            std::cout << "Invalid name. "
+                << "Please enter a player name."
+                << std::endl;
+        }
+
+        Player player;
+        player.SetName(name);
+
+        m_players.push_back(player);
+
+        // Player records are saved when the completed game is stored.
+    }
+
+    std::cout << std::endl;
+    std::cout << "Game setup complete!"
+        << std::endl << std::endl;
 }
 
-void LCRDatabase::CloseDatabase()
+// Generates a random die value from 1 through 6.
+int LCRGame::RollDie()
 {
-	if ( database != nullptr )
-	{
-		sqlite3_close( database );
-		database = nullptr;
-	}
+    static std::random_device randomDevice;
+    static std::mt19937 generator(randomDevice());
+    static std::uniform_int_distribution<int> distribution(1, 6);
+
+    return distribution(generator);
 }
 
-bool LCRDatabase::CreateTables()
+// Processes a die result and moves chips when needed.
+void LCRGame::ProcessDieResult(int result)
 {
-	const char* sql = R"sql(
+    if (result == 1)
+    {
+        // Calculate the player to the left, wrapping around the vector.
+        int leftPlayer =
+            (m_currentPlayer - 1 + m_numPlayers) % m_numPlayers;
 
-		CREATE TABLE IF NOT EXISTS Players
-		(
-			player_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			player_name TEXT NOT NULL
-		);
+        m_players[m_currentPlayer].RemoveChip();
+        m_players[leftPlayer].AddChip();
 
-		CREATE TABLE IF NOT EXISTS Games
-		(
-			game_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			game_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-			winner_id INTEGER,
-			FOREIGN KEY (winner_id) REFERENCES Players(player_id)
-		);
+        std::cout << "L - "
+            << m_players[m_currentPlayer].GetName()
+            << " passes a chip to "
+            << m_players[leftPlayer].GetName()
+            << "." << std::endl;
+    }
+    else if (result == 2)
+    {
+        // Calculate the player to the right, wrapping around the vector.
+        int rightPlayer =
+            (m_currentPlayer + 1) % m_numPlayers;
 
-		CREATE TABLE IF NOT EXISTS GamePlayers
-		(
-			game_player_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			game_id INTEGER NOT NULL,
-			player_id INTEGER NOT NULL,
-			player_position INTEGER NOT NULL,
-			chip_count INTEGER NOT NULL DEFAULT 3,
-			FOREIGN KEY (game_id) REFERENCES Games(game_id),
-			FOREIGN KEY (player_id) REFERENCES Players(player_id)
-		);
+        m_players[m_currentPlayer].RemoveChip();
+        m_players[rightPlayer].AddChip();
 
-		CREATE TABLE IF NOT EXISTS Turns
-		(
-			turn_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			game_id INTEGER NOT NULL,
-			player_id INTEGER NOT NULL,
-			dice_rolled INTEGER NOT NULL,
-			turn_number INTEGER NOT NULL,
-			FOREIGN KEY (game_id) REFERENCES Games(game_id),
-			FOREIGN KEY (player_id) REFERENCES Players(player_id)
-		);
+        std::cout << "R - "
+            << m_players[m_currentPlayer].GetName()
+            << " passes a chip to "
+            << m_players[rightPlayer].GetName()
+            << "." << std::endl;
+    }
+    else if (result == 3)
+    {
+        // Move one chip from the current player into the center pot.
+        m_players[m_currentPlayer].RemoveChip();
+        m_centerPot++;
 
-		CREATE TABLE IF NOT EXISTS DiceResults
-		(
-			dice_result_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			turn_id INTEGER NOT NULL,
-			die_number INTEGER NOT NULL,
-			result TEXT NOT NULL,
-			FOREIGN KEY (turn_id) REFERENCES Turns(turn_id)
-		);
-
-		CREATE TABLE IF NOT EXISTS ChipMovements
-		(
-			movement_id INTEGER PRIMARY KEY AUTOINCREMENT,
-			turn_id INTEGER NOT NULL,
-			from_player_id INTEGER,
-			to_player_id INTEGER,
-			movement_type TEXT NOT NULL,
-			FOREIGN KEY (turn_id) REFERENCES Turns(turn_id),
-			FOREIGN KEY (from_player_id) REFERENCES Players(player_id),
-			FOREIGN KEY (to_player_id) REFERENCES Players(player_id)
-		);
-
-	)sql";
-
-	char* errorMessage = nullptr;
-
-	int result = sqlite3_exec(
-		database ,
-		sql ,
-		nullptr ,
-		nullptr ,
-		&errorMessage
-	);
-
-	if ( result != SQLITE_OK )
-	{
-		std::cout << "Unable to create database tables." << std::endl;
-
-		if ( errorMessage != nullptr )
-		{
-			std::cout << errorMessage << std::endl;
-			sqlite3_free( errorMessage );
-		}
-
-		return false;
-	}
-
-	std::cout << "Database tables created successfully." << std::endl;
-
-	return true;
+        std::cout << "C - "
+            << m_players[m_currentPlayer].GetName()
+            << " puts a chip in the center."
+            << std::endl;
+    }
+    else
+    {
+        std::cout << "* - No action."
+            << std::endl;
+    }
 }
 
-
-// Adds a player to the Players table.
-int LCRDatabase::AddPlayer( const std::string& playerName )
+// Plays one player's turn.
+void LCRGame::PlayTurn()
 {
-	const char* sql =
-		"INSERT INTO Players (player_name) VALUES (?);";
+    Player& player = m_players[m_currentPlayer];
 
-	sqlite3_stmt* statement = nullptr;
+    // A player can roll no more dice than their chip count or three dice.
+    int numberOfDice = player.GetChips();
 
-	int result = sqlite3_prepare_v2(
-		database ,
-		sql ,
-		-1 ,
-		&statement ,
-		nullptr
-	);
+    if (numberOfDice > 3)
+    {
+        numberOfDice = 3;
+    }
 
-	if ( result != SQLITE_OK )
-	{
-		std::cout << "Unable to prepare player insert."
-			<< std::endl;
+    if (numberOfDice == 0)
+    {
+        std::cout << player.GetName()
+            << " has no chips and skips the roll."
+            << std::endl;
 
-		return -1;
-	}
+        return;
+    }
 
-	sqlite3_bind_text(
-		statement ,
-		1 ,
-		playerName.c_str() ,
-		-1 ,
-		SQLITE_TRANSIENT
-	);
+    std::cout << player.GetName()
+        << " has "
+        << player.GetChips()
+        << " chip(s) and rolls "
+        << numberOfDice
+        << " die/dice."
+        << std::endl;
 
-	result = sqlite3_step( statement );
+    for (int die = 0; die < numberOfDice; die++)
+    {
+        int result = RollDie();
+        ProcessDieResult(result);
+    }
+}
 
-	if ( result != SQLITE_DONE )
-	{
-		std::cout << "Unable to add player to database."
-			<< std::endl;
+// Counts players who currently have at least one chip.
+int LCRGame::CountPlayersWithChips() const
+{
+    int playersWithChips = 0;
 
-		std::cout << "SQLite error: "
-			<< sqlite3_errmsg( database )
-			<< std::endl;
+    // Check each player in the vector.
+    for (const Player& player : m_players)
+    {
+        if (player.GetChips() > 0)
+        {
+            playersWithChips++;
+        }
+    }
 
-		sqlite3_finalize( statement );
+    return playersWithChips;
+}
 
-		return -1;
-	}
+// Determines whether only one player still has chips.
+bool LCRGame::HasWinner() const
+{
+    return CountPlayersWithChips() == 1;
+}
 
-	int playerId =
-		static_cast<int>( sqlite3_last_insert_rowid( database ) );
+// Displays each player's current chip count.
+void LCRGame::DisplayScores() const
+{
+    std::cout << std::endl;
+    std::cout << "Current Chip Totals:"
+        << std::endl;
 
-	std::cout << "Player added to database: "
-		<< playerName
-		<< " (ID "
-		<< playerId
-		<< ")"
-		<< std::endl;
+    for (const Player& player : m_players)
+    {
+        std::cout << player.GetName()
+            << ": "
+            << player.GetChips()
+            << " chip(s)"
+            << std::endl;
+    }
 
-	sqlite3_finalize( statement );
+    std::cout << "Center Pot: "
+        << m_centerPot
+        << " chip(s)"
+        << std::endl << std::endl;
+}
 
-	return playerId;
+// Runs the complete game and saves the final results.
+void LCRGame::RunGame()
+{
+    DisplayRules();
+    SetupGame();
+
+    std::cout << "The game is starting!"
+        << std::endl << std::endl;
+
+    // Continue playing until only one player has chips.
+    while (!HasWinner())
+    {
+        std::cout << "----------------------------------------"
+            << std::endl;
+
+        std::cout << "It is "
+            << m_players[m_currentPlayer].GetName()
+            << "'s turn."
+            << std::endl;
+
+        PlayTurn();
+        DisplayScores();
+
+        // Move to the next player, returning to the beginning if needed.
+        m_currentPlayer =
+            (m_currentPlayer + 1) % m_numPlayers;
+    }
+
+    // Collect the final player names and chip counts for the database.
+    std::vector<std::string> playerNames;
+    std::vector<int> chipCounts;
+
+    int winnerIndex = -1;
+
+    for (int i = 0; i < static_cast<int>(m_players.size()); i++)
+    {
+        playerNames.push_back(m_players[i].GetName());
+        chipCounts.push_back(m_players[i].GetChips());
+
+        // Record the index of the player who still has chips.
+        if (m_players[i].GetChips() > 0)
+        {
+            winnerIndex = i;
+        }
+    }
+
+    // Announce the winner before saving the completed game.
+    if (winnerIndex >= 0)
+    {
+        const Player& winner = m_players[winnerIndex];
+
+        std::cout << "========================================"
+            << std::endl;
+
+        std::cout << "WINNER: "
+            << winner.GetName()
+            << "!" << std::endl;
+
+        std::cout << "They have "
+            << winner.GetChips()
+            << " chip(s)."
+            << std::endl;
+
+        std::cout << "========================================"
+            << std::endl;
+
+        // Save the winner and every player's final chip count.
+        if (m_database.SaveCompletedGame(
+            playerNames, chipCounts, winnerIndex))
+        {
+            std::cout << "Game results saved to the database."
+                << std::endl;
+        }
+        else
+        {
+            std::cout << "Warning: Game results could not be saved."
+                << std::endl;
+        }
+    }
 }
